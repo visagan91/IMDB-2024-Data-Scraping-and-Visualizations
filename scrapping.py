@@ -1,82 +1,98 @@
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
+from selenium.webdriver.common.action_chains import ActionChains
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 from webdriver_manager.chrome import ChromeDriverManager
 import pandas as pd
 import time
 
-# Setup Chrome in headless mode
-options = webdriver.ChromeOptions()
-options.add_argument("--headless")  # Comment out if you want to see the browser
+# 🎬 Genres and URLs (2024 movies)
+genres = {
+    'Action': 'https://www.imdb.com/search/title/?title_type=feature&release_date=2024-01-01,2024-12-31&genres=action',
+    'Comedy': 'https://www.imdb.com/search/title/?title_type=feature&release_date=2024-01-01,2024-12-31&genres=comedy',
+    'Horror': 'https://www.imdb.com/search/title/?title_type=feature&release_date=2024-01-01,2024-12-31&genres=horror',
+    'Drama': 'https://www.imdb.com/search/title/?title_type=feature&release_date=2024-01-01,2024-12-31&genres=drama',
+    'Sci-Fi': 'https://www.imdb.com/search/title/?title_type=feature&release_date=2024-01-01,2024-12-31&genres=sci-fi',
+    'Thriller': 'https://www.imdb.com/search/title/?title_type=feature&release_date=2024-01-01,2024-12-31&genres=thriller',
+    'Romance': 'https://www.imdb.com/search/title/?title_type=feature&release_date=2024-01-01,2024-12-31&genres=romance',
+    'Animation': 'https://www.imdb.com/search/title/?title_type=feature&release_date=2024-01-01,2024-12-31&genres=animation',
+    'Adventure': 'https://www.imdb.com/search/title/?title_type=feature&release_date=2024-01-01,2024-12-31&genres=adventure'
+}
 
-# Initialize driver
-driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
+for genre_name, genre_url in genres.items():
+    print(f"\n🎬 Scraping genre: {genre_name}")
 
-# IMDb URL
-url = 'https://www.imdb.com/search/title/?title_type=feature&release_date=2024-01-01,2024-12-31'
-driver.get(url)
+    service = Service(ChromeDriverManager().install())
+    options = webdriver.ChromeOptions()
+    options.add_argument('--headless')  # headless mode
+    options.add_argument('--no-sandbox')
+    options.add_argument('--disable-gpu')
+    options.add_argument('--window-size=1920,1080')
 
-time.sleep(3)  # wait for page to load; adjust as needed
+    driver = webdriver.Chrome(service=service, options=options)
 
-# Lists to store data
-movie_names = []
-genres = []
-ratings = []
-votes = []
-durations = []
+    driver.get(genre_url)
+    movies_list = []
 
-# Find all movie containers
-movies = driver.find_elements(By.CSS_SELECTOR, '.lister-item.mode-advanced')
+    while True:
+        try:
+            WebDriverWait(driver, 10).until(
+                EC.presence_of_all_elements_located((By.CSS_SELECTOR, 'li.ipc-metadata-list-summary-item'))
+            )
+        except:
+            print("⚠️ Timeout: movies not loaded.")
+            break
 
-for movie in movies:
-    # Movie name
-    try:
-        name = movie.find_element(By.CSS_SELECTOR, 'h3.lister-item-header a').text
-    except:
-        name = ''
-    movie_names.append(name)
+        movies = driver.find_elements(By.CSS_SELECTOR, 'li.ipc-metadata-list-summary-item')
+        print(f"✅ Found total movies loaded so far: {len(movies)}")
 
-    # Genre
-    try:
-        genre = movie.find_element(By.CSS_SELECTOR, '.genre').text.strip()
-    except:
-        genre = ''
-    genres.append(genre)
+        for movie in movies[len(movies_list):]:  # scrape only new ones
+            try:
+                name = movie.find_element(By.CSS_SELECTOR, 'h3.ipc-title__text').text
+            except:
+                name = ''
+            try:
+                rating = movie.find_element(By.CSS_SELECTOR, 'span.ipc-rating-star--rating').text
+            except:
+                rating = ''
+            try:
+                votes = movie.find_element(By.CSS_SELECTOR, 'span.ipc-rating-star--voteCount').text.strip('()').replace(',', '')
+            except:
+                votes = ''
+            try:
+                metadata = movie.find_elements(By.CSS_SELECTOR, 'div.dli-title-metadata span')
+                duration = metadata[1].text if len(metadata) >= 2 else ''
+            except:
+                duration = ''
 
-    # Rating
-    try:
-        rating = movie.find_element(By.CSS_SELECTOR, '.ratings-imdb-rating strong').text
-    except:
-        rating = ''
-    ratings.append(rating)
+            movies_list.append({
+                'Movie Name': name,
+                'Genre': genre_name,
+                'Rating': rating,
+                'Voting Counts': votes,
+                'Duration': duration
+            })
 
-    # Votes
-    try:
-        vote = movie.find_element(By.CSS_SELECTOR, 'p.sort-num_votes-visible span[name="nv"]').text
-    except:
-        vote = ''
-    votes.append(vote)
+        # Try to click "50 more" button
+        try:
+            more_button = WebDriverWait(driver, 5).until(
+                EC.element_to_be_clickable((By.CSS_SELECTOR, 'svg.ipc-icon--expand-more'))
+            )
+            ActionChains(driver).move_to_element(more_button).click().perform()
+            print("➡️ Clicked '50 more' button, loading more movies...")
+            time.sleep(2)
+        except:
+            print("✅ No more '50 more' button found. Stopping.")
+            break
 
-    # Duration
-    try:
-        duration = movie.find_element(By.CSS_SELECTOR, '.runtime').text
-    except:
-        duration = ''
-    durations.append(duration)
+    driver.quit()
 
-# Close driver
-driver.quit()
+    # Save CSV for this genre
+    df = pd.DataFrame(movies_list)
+    csv_filename = f'imdb_movies_{genre_name.lower()}_2024.csv'
+    df.to_csv(csv_filename, index=False)
+    print(f"📦 Saved {len(df)} movies to {csv_filename}")
 
-# Create dataframe
-df = pd.DataFrame({
-    'Movie Name': movie_names,
-    'Genre': genres,
-    'Rating': ratings,
-    'Voting Counts': votes,
-    'Duration': durations
-})
-
-# Save to CSV
-df.to_csv('imdb_movies_2024.csv', index=False)
-
-print(df)
+print("\n✅ Finished scraping all genres!")
