@@ -24,14 +24,13 @@ genres = {
 for genre_name, genre_url in genres.items():
     print(f"\n🎬 Scraping genre: {genre_name}")
 
+    # Create fresh browser per genre
     service = Service(ChromeDriverManager().install())
-    options = webdriver.ChromeOptions()
-    options.add_argument('--headless')  # headless mode
-    options.add_argument('--no-sandbox')
-    options.add_argument('--disable-gpu')
-    options.add_argument('--window-size=1920,1080')
+    driver = webdriver.Chrome(service=service)
+    driver.maximize_window()
 
-    driver = webdriver.Chrome(service=service, options=options)
+    driver.get(genre_url)
+    movies_list = []
 
     driver.get(genre_url)
     movies_list = []
