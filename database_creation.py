@@ -1,27 +1,24 @@
+from dotenv import load_dotenv
+import os
+from urllib.parse import quote_plus
+from sqlalchemy import create_engine
+import pandas as pd
 
+load_dotenv()
 
-from sqlalchemy import create_engine, text
+DB_USER = os.getenv("MYSQL_USER")
+DB_PASSWORD = quote_plus(os.getenv("MYSQL_PASSWORD"))
+DB_HOST = os.getenv("MYSQL_HOST")
+DB_PORT = os.getenv("MYSQL_PORT")
+DB_NAME = os.getenv("MYSQL_DB")
 
-# Replace these with your credentials
-user = "root"
-password = "yourpassword"  # if you haven’t set a password yet, just use ""
-host = "127.0.0.1"         # use IP address, NOT localhost or socket
-port = 3306
+DATABASE_URL = f"mysql+pymysql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
+print(f"Connecting to DB: {DATABASE_URL}")  # optional for debug
 
-# Step 1: Connect to MySQL server itself (not to a specific DB yet)
-engine = create_engine(f"mysql+pymysql://{user}:{password}@{host}:{port}")
+engine = create_engine(DATABASE_URL)
 
-with engine.connect() as conn:
-    # Step 2: Create the database if it doesn't exist
-    conn.execute(text("CREATE DATABASE IF NOT EXISTS imdb_db"))
-    print("✅ Database 'imdb_db' created or already exists")
+df = pd.read_csv("./data/imdb_movies_merged_2024.csv")
+print(f"📦 Loaded merged data: {len(df)} rows")
 
-
-# Store data into table 'movies_2024'
 df.to_sql("movies_2024", con=engine, if_exists="replace", index=False)
-
-print("✅ Data successfully stored into MySQL database (table: movies_2024)")
-
-
-conn.close()
-print("✅ Done. Database saved as imdb_movies.db")
+print("✅ Data successfully written to database!")

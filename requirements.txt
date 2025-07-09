@@ -4,3 +4,4 @@ streamlit
 webdriver-manager
 sqlalchemy
 pymysql
+python-dotenv
