@@ -3,3 +3,4 @@ pandas
 streamlit
 webdriver-manager
 sqlalchemy
+pymysql

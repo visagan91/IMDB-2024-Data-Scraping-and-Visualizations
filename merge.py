@@ -1,27 +1,26 @@
+# merge.py
 import pandas as pd
 import glob
 
-# Step 1: Load all CSVs
-csv_files = glob.glob('imdb_movies_*_2024.csv')
-print(f"🗂 Found {len(csv_files)} CSV files to merge: {csv_files}")
+# Find all genre CSV files
+csv_files = glob.glob("imdb_movies_*_2024.csv")
+print(f"📦 Found files: {csv_files}")
 
-all_dfs = []
+merged_df = pd.DataFrame()
+
 for file in csv_files:
     df = pd.read_csv(file)
-    all_dfs.append(df)
+    merged_df = pd.concat([merged_df, df], ignore_index=True)
 
-# Step 2: Concatenate
-merged_df = pd.concat(all_dfs, ignore_index=True)
+# Merge genres: group by Movie Name, combine genre names
+final_df = (
+    merged_df.groupby(['Movie Name', 'Rating', 'Voting Counts', 'Duration'], dropna=False)
+    .agg({'Genre': lambda x: ', '.join(sorted(set(x)))})
+    .reset_index()
+)
 
-# Step 3: Group by Movie Name and combine genres
-merged_df = merged_df.groupby(
-    ['Movie Name', 'Rating', 'Voting Counts', 'Duration'],
-    as_index=False
-).agg({'Genre': lambda x: ', '.join(sorted(set(x)))})
+print(f"✅ Total unique movies after merging: {len(final_df)}")
 
-# Step 4: Save merged file
-merged_df.to_csv('imdb_movies_merged_2024.csv', index=False)
-print(f"✅ Merged dataset saved to imdb_movies_merged_2024.csv with {len(merged_df)} unique movies")
-
-# Optional: view first few rows
-print(merged_df.head())
+# Save merged dataset
+final_df.to_csv("imdb_movies_merged_2024.csv", index=False)
+print("💾 Saved merged data to imdb_movies_merged_2024.csv")
