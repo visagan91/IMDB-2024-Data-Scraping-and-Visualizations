@@ -5,3 +5,7 @@ webdriver-manager
 sqlalchemy
 pymysql
 python-dotenv
+matplotlib 
+seaborn 
+plotly
+urllib.parse
